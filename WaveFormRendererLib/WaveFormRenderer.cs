@@ -9,17 +9,42 @@ namespace NAudio.WaveFormRenderer
         public Image Render(string selectedFile, WaveFormRendererSettings settings)
         {
             return Render(selectedFile, new MaxPeakProvider(), settings);
-        }        
+        }
 
         public Image Render(string selectedFile, IPeakProvider peakProvider, WaveFormRendererSettings settings)
         {
-            using (var reader = new AudioFileReader(selectedFile))
+            return Render(selectedFile, new MaxPeakProvider(), settings, (a) => new AudioFileReader(a));
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="selectedFile"></param>
+        /// <param name="peakProvider"></param>
+        /// <param name="settings"></param>
+        /// <param name="audioFileReader">Like AudioFileReader, it has to inherit both WaveStream and ISampleProvider</param>
+        /// <returns></returns>
+        public Image Render(string selectedFile, IPeakProvider peakProvider, WaveFormRendererSettings settings, Func<string, WaveStream> audioFileReader)
+        {
+            using (WaveStream reader = audioFileReader.Invoke(selectedFile))
             {
                 int bytesPerSample = (reader.WaveFormat.BitsPerSample / 8);
                 var samples = reader.Length / (bytesPerSample);
                 var samplesPerPixel = (int)(samples / settings.Width);
                 var stepSize = settings.PixelsPerPeak + settings.SpacerPixels;
-                peakProvider.Init(reader, samplesPerPixel * stepSize);
+                peakProvider.Init((ISampleProvider)reader, samplesPerPixel * stepSize);
+                return Render(peakProvider, settings);
+            }
+        }
+
+        public Image Render(WaveStream audioFileReader, IPeakProvider peakProvider, WaveFormRendererSettings settings)
+        {
+            using (audioFileReader)
+            {
+                int bytesPerSample = (audioFileReader.WaveFormat.BitsPerSample / 8);
+                var samples = audioFileReader.Length / (bytesPerSample);
+                var samplesPerPixel = (int)(samples / settings.Width);
+                var stepSize = settings.PixelsPerPeak + settings.SpacerPixels;
+                peakProvider.Init((ISampleProvider)audioFileReader, samplesPerPixel * stepSize);
                 return Render(peakProvider, settings);
             }
         }
@@ -36,7 +61,7 @@ namespace NAudio.WaveFormRenderer
             }
             using (var g = Graphics.FromImage(b))
             {
-                g.FillRectangle(settings.BackgroundBrush, 0,0,b.Width,b.Height);
+                g.FillRectangle(settings.BackgroundBrush, 0, 0, b.Width, b.Height);
                 var midPoint = settings.TopHeight;
 
                 int x = 0;
@@ -44,7 +69,7 @@ namespace NAudio.WaveFormRenderer
                 while (x < settings.Width)
                 {
                     var nextPeak = peakProvider.GetNextPeak();
-                    
+
                     for (int n = 0; n < settings.PixelsPerPeak; n++)
                     {
                         var lineHeight = settings.TopHeight * currentPeak.Max;
@@ -63,7 +88,7 @@ namespace NAudio.WaveFormRenderer
                         var lineHeight = settings.TopHeight * max;
                         g.DrawLine(settings.TopSpacerPen, x, midPoint, x, midPoint - lineHeight);
                         lineHeight = settings.BottomHeight * min;
-                        g.DrawLine(settings.BottomSpacerPen, x, midPoint, x, midPoint - lineHeight); 
+                        g.DrawLine(settings.BottomSpacerPen, x, midPoint, x, midPoint - lineHeight);
                         x++;
                     }
                     currentPeak = nextPeak;
