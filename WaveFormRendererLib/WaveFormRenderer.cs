@@ -13,7 +13,7 @@ namespace NAudio.WaveFormRenderer
 
         public Image Render(string selectedFile, IPeakProvider peakProvider, WaveFormRendererSettings settings)
         {
-            return Render(selectedFile, new MaxPeakProvider(), settings, (a) => new AudioFileReader(a));
+            return Render(selectedFile, peakProvider, settings, (a) => new AudioFileReader(a));
         }
         /// <summary>
         /// 
